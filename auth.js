@@ -20,6 +20,11 @@ function verifyToken(token) {
   }
 }
 
+// Check if the user has a specific role
+function hasRole(user, roleName) {
+  return user?.Role?.name === roleName;
+}
+
 // User login
 async function login(req, res) {
   const { email, password } = req.body;
@@ -49,4 +54,5 @@ async function login(req, res) {
 module.exports = {
   verifyToken,
   login,
+  hasRole,
 };
