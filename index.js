@@ -1,13 +1,13 @@
 const express = require("express");
 const bodyParser = require("body-parser");
-const authRoutes = require("./auth");
-const userRoutes = require("./app/routes/users");
-const feedRoutes = require("./app/routes/feeds");
 const logger = require("./logger");
-
-const { Role, Feed } = require("./app/models");
-const User = require("./app/models/user");
 const sequelize = require("./config/database");
+const User = require("./app/models/user");
+const { Role, Feed } = require("./models");
+
+const authRoutes = require("./auth");
+const userController = require("./app/controllers/userController");
+const feedController = require("./app/controllers/feedController");
 
 const app = express();
 const port = 3000;
@@ -25,11 +25,6 @@ async function initializeDatabase() {
     console.error("Unable to connect to the database:", error);
   }
 }
-
-// Routes
-app.use("/auth", authRoutes);
-app.use("/users", userRoutes);
-app.use("/feeds", feedRoutes);
 
 // Create super admin on server startup
 async function createSuperAdmin() {
@@ -55,6 +50,20 @@ async function createSuperAdmin() {
     console.error("Error creating super admin:", error);
   }
 }
+
+// Routes
+app.use("/auth", authRoutes);
+app.get("/users", userController.getAllUsers);
+app.get("/users/:id", userController.getUserById);
+app.post("/users", userController.createUser);
+app.put("/users/:id", userController.updateUserById);
+app.delete("/users/:id", userController.deleteUserById);
+
+app.get("/feeds", feedController.getAllFeeds);
+app.get("/feeds/:id", feedController.getFeedById);
+app.post("/feeds", feedController.createFeed);
+app.put("/feeds/:id", feedController.updateFeedById);
+app.delete("/feeds/:id", feedController.deleteFeedById);
 
 // Start the server
 async function startServer() {
