@@ -118,4 +118,26 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+// Get logs for the last 5 minutes
+router.get("/logs", (req, res) => {
+  const logFile = path.join(logsDir, "access.log");
+  const currentTime = moment();
+  const fiveMinutesAgo = moment().subtract(5, "minutes");
+
+  fs.readFile(logFile, "utf8", (err, data) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+
+    const lines = data.split("\n");
+    const logs = lines.filter((line) => {
+      const logTime = moment(line.split(" ")[0], "YYYY-MM-DDTHH:mm:ss.SSSZ");
+      return logTime.isBetween(fiveMinutesAgo, currentTime);
+    });
+
+    return res.json({ logs });
+  });
+});
+
 module.exports = router;
