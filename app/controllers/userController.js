@@ -1,5 +1,6 @@
 const bcrypt = require("bcrypt");
 const User = require("../models/user");
+const sequelize = require("../../config/database");
 const { hasRole } = require("../../auth");
 const Role = require("../models/Role");
 
@@ -15,30 +16,38 @@ async function createUser(req, res) {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    // Check if the user already exists
-    const existingUser = await User.findOne({ where: { email } });
+    await sequelize.transaction(async (transaction) => {
+      // Check if the user already exists
+      const existingUser = await User.findOne({
+        where: { email },
+        transaction,
+      });
 
-    if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
-    }
+      if (existingUser) {
+        return res.status(400).json({ message: "User already exists" });
+      }
 
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(password, 10);
+      // Hash the password
+      const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create the user
-    const user = await User.create({
-      name,
-      email,
-      password: hashedPassword,
+      // Create the user
+      const user = await User.create(
+        {
+          name,
+          email,
+          password: hashedPassword,
+        },
+        { transaction }
+      );
+
+      // Assign the role to the user
+      const assignedRole = await Role.findOne({ where: { name: role } });
+      if (assignedRole) {
+        await user.setRole(assignedRole, { transaction });
+      }
+
+      return res.json(user);
     });
-
-    // Assign the role to the user
-    const assignedRole = await Role.findOne({ where: { name: role } });
-    if (assignedRole) {
-      await user.setRole(assignedRole);
-    }
-
-    return res.json(user);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Internal server error" });
@@ -112,31 +121,36 @@ async function updateUserById(req, res) {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const user = await User.findByPk(id);
+    await sequelize.transaction(async (transaction) => {
+      const user = await User.findByPk(id, { transaction });
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Admin users cannot update other admin users
-    if (hasRole(user, "Admin") && !hasRole(currentUser, "Super Admin")) {
-      return res.status(403).json({ message: "Access denied" });
-    }
-
-    user.name = name;
-    user.email = email;
-
-    // Super Admin can update the role of other users
-    if (hasRole(currentUser, "Super Admin")) {
-      const assignedRole = await Role.findOne({ where: { name: role } });
-      if (assignedRole) {
-        await user.setRole(assignedRole);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
       }
-    }
 
-    await user.save();
+      // Admin users cannot update other admin users
+      if (hasRole(user, "Admin") && !hasRole(currentUser, "Super Admin")) {
+        return res.status(403).json({ message: "Access denied" });
+      }
 
-    return res.json(user);
+      user.name = name;
+      user.email = email;
+
+      // Super Admin can update the role of other users
+      if (hasRole(currentUser, "Super Admin")) {
+        const assignedRole = await Role.findOne({
+          where: { name: role },
+          transaction,
+        });
+        if (assignedRole) {
+          await user.setRole(assignedRole, { transaction });
+        }
+      }
+
+      await user.save({ transaction });
+
+      return res.json(user);
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Internal server error" });
@@ -155,25 +169,27 @@ async function deleteUserById(req, res) {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const user = await User.findByPk(id);
+    await sequelize.transaction(async (transaction) => {
+      const user = await User.findByPk(id, { transaction });
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
 
-    // Super Admin cannot be deleted
-    if (hasRole(user, "Super Admin")) {
-      return res.status(403).json({ message: "Access denied" });
-    }
+      // Super Admin cannot be deleted
+      if (hasRole(user, "Super Admin")) {
+        return res.status(403).json({ message: "Access denied" });
+      }
 
-    // Admin users cannot delete other admin users
-    if (hasRole(user, "Admin") && !hasRole(currentUser, "Super Admin")) {
-      return res.status(403).json({ message: "Access denied" });
-    }
+      // Admin users cannot delete other admin users
+      if (hasRole(user, "Admin") && !hasRole(currentUser, "Super Admin")) {
+        return res.status(403).json({ message: "Access denied" });
+      }
 
-    await user.destroy();
+      await user.destroy({ transaction });
 
-    return res.json({ message: "User deleted successfully" });
+      return res.json({ message: "User deleted successfully" });
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Internal server error" });

@@ -1,5 +1,6 @@
 const Feed = require("../models/feed");
 const { hasRole } = require("../../auth");
+const sequelize = require("../../config/database");
 
 // Create a new feed
 async function createFeed(req, res) {
@@ -13,13 +14,18 @@ async function createFeed(req, res) {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const feed = await Feed.create({
-      name,
-      url,
-      description,
-    });
+    await sequelize.transaction(async (transaction) => {
+      const feed = await Feed.create(
+        {
+          name,
+          url,
+          description,
+        },
+        { transaction }
+      );
 
-    return res.json(feed);
+      return res.json(feed);
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Internal server error" });
@@ -91,18 +97,20 @@ async function updateFeedById(req, res) {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const feed = await Feed.findByPk(id);
+    await sequelize.transaction(async (transaction) => {
+      const feed = await Feed.findByPk(id, { transaction });
 
-    if (!feed) {
-      return res.status(404).json({ message: "Feed not found" });
-    }
+      if (!feed) {
+        return res.status(404).json({ message: "Feed not found" });
+      }
 
-    feed.name = name;
-    feed.url = url;
-    feed.description = description;
-    await feed.save();
+      feed.name = name;
+      feed.url = url;
+      feed.description = description;
+      await feed.save({ transaction });
 
-    return res.json(feed);
+      return res.json(feed);
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Internal server error" });
@@ -124,15 +132,17 @@ async function deleteFeedById(req, res) {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const feed = await Feed.findByPk(id);
+    await sequelize.transaction(async (transaction) => {
+      const feed = await Feed.findByPk(id, { transaction });
 
-    if (!feed) {
-      return res.status(404).json({ message: "Feed not found" });
-    }
+      if (!feed) {
+        return res.status(404).json({ message: "Feed not found" });
+      }
 
-    await feed.destroy();
+      await feed.destroy({ transaction });
 
-    return res.json({ message: "Feed deleted successfully" });
+      return res.json({ message: "Feed deleted successfully" });
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Internal server error" });
