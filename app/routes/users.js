@@ -63,4 +63,59 @@ router.post("/:userId/feeds", async (req, res) => {
   }
 });
 
+// Get all users
+router.get("/", async (req, res) => {
+  try {
+    const users = await User.findAll();
+    return res.json(users);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Update a user
+router.put("/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, role, email } = req.body;
+
+  try {
+    const user = await User.findByPk(id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    user.name = name;
+    user.role = role;
+    user.email = email;
+    await user.save();
+
+    return res.json(user);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Delete a user
+router.delete("/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const user = await User.findByPk(id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    await user.destroy();
+
+    return res.json({ message: "User deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 module.exports = router;
