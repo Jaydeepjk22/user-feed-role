@@ -5,7 +5,7 @@ const User = require("./models/User");
 // Generate a JWT token
 function generateToken(user) {
   const token = jwt.sign({ id: user.id, role: user.role }, "your-secret-key", {
-    expiresIn: "1h",
+    expiresIn: "12h",
   });
   return token;
 }
@@ -13,7 +13,7 @@ function generateToken(user) {
 // Verify a JWT token
 function verifyToken(token) {
   try {
-    const decoded = jwt.verify(token, "your-secret-key");
+    const decoded = jwt.verify(token, "users-feed-roles");
     return decoded;
   } catch (error) {
     return null;
